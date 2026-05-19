@@ -552,13 +552,17 @@ fn snapshot_preserves_custom_title_and_color() {
     let config = tab_config_from_pane_snapshot(
         &snapshot,
         Some("My Project".to_string()),
-        Some(crate::themes::theme::AnsiColorIdentifier::Blue),
+        Some(crate::tab::TabColorChoice::normal(
+            crate::themes::theme::AnsiColorIdentifier::Blue,
+        )),
     );
 
     assert_eq!(config.title.as_deref(), Some("My Project"));
     assert_eq!(
         config.color,
-        Some(crate::themes::theme::AnsiColorIdentifier::Blue)
+        Some(crate::tab::TabColorChoice::normal(
+            crate::themes::theme::AnsiColorIdentifier::Blue
+        ))
     );
 }
 

@@ -50,7 +50,7 @@ use crate::terminal::keys_settings::KeysSettings;
 use crate::terminal::shell::ShellType;
 use crate::terminal::view::{cell_size_and_padding, TerminalAction};
 use crate::themes::onboarding_theme_picker_themes;
-use crate::themes::theme::{AnsiColorIdentifier, Blend, Fill, ThemeKind, WarpThemeConfig};
+use crate::themes::theme::{Blend, Fill, ThemeKind, WarpThemeConfig};
 use crate::uri::OpenMCPSettingsArgs;
 use crate::util::bindings::{self, is_binding_pty_compliant};
 use crate::util::traffic_lights::{traffic_light_data, TrafficLightData, TrafficLightMouseStates};
@@ -1516,7 +1516,7 @@ pub enum NewWorkspaceSource {
     /// PaneGroup after window creation.
     TransferredTab {
         /// Tab color from the source tab
-        tab_color: Option<AnsiColorIdentifier>,
+        tab_color: Option<crate::tab::TabColorChoice>,
         /// Custom title from the source tab
         custom_title: Option<String>,
         /// Whether the left panel was open in the source tab

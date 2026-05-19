@@ -17,7 +17,7 @@ use crate::drive::OpenWarpDriveObjectSettings;
 use crate::root_view::quake_mode_window_id;
 use crate::server::ids::SyncId;
 use crate::settings_view::{environments_page::EnvironmentsPage, SettingsSection};
-use crate::tab::SelectedTabColor;
+use crate::tab::{SelectedTabColor, TabColorChoice};
 use crate::terminal::ShellLaunchData;
 use crate::themes::theme::AnsiColorIdentifier;
 use crate::workspace::view::left_panel::ToolPanelView;
@@ -70,7 +70,7 @@ pub struct TabSnapshot {
 }
 
 impl TabSnapshot {
-    pub(crate) fn color(&self) -> Option<AnsiColorIdentifier> {
+    pub(crate) fn color(&self) -> Option<TabColorChoice> {
         self.selected_color.resolve(self.default_directory_color)
     }
 }

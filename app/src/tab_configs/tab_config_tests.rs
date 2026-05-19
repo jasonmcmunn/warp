@@ -615,7 +615,9 @@ directory = "~/code"
     let config: TabConfig = toml::from_str(toml_str).expect("Should parse with color");
     assert_eq!(
         config.color,
-        Some(crate::themes::theme::AnsiColorIdentifier::Blue)
+        Some(crate::tab::TabColorChoice::normal(
+            crate::themes::theme::AnsiColorIdentifier::Blue
+        ))
     );
 }
 

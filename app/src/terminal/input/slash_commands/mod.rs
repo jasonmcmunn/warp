@@ -14,7 +14,6 @@ use ai::skills::SkillReference;
 use warp_core::features::FeatureFlag;
 use warp_core::send_telemetry_from_ctx;
 use warp_core::ui::appearance::Appearance;
-use warp_core::ui::theme::AnsiColorIdentifier;
 #[cfg(feature = "local_fs")]
 use warp_util::path::{CleanPathResult, LineAndColumnArg};
 use warpui::clipboard::ClipboardContent;
@@ -42,7 +41,7 @@ use crate::search::slash_command_menu::{SlashCommandId, StaticCommand};
 use crate::server::ids::SyncId;
 use crate::server::telemetry::SlashCommandAcceptedDetails;
 use crate::settings::AISettings;
-use crate::tab::SelectedTabColor;
+use crate::tab::{SelectedTabColor, TabColorChoice};
 use crate::terminal::input::decorations::InputBackgroundJobOptions;
 use crate::terminal::input::inline_menu::{InlineMenuAction, InlineMenuType};
 use crate::terminal::input::message_bar::Message;
@@ -506,6 +505,11 @@ impl Input {
                     color_dot::TAB_COLOR_OPTIONS
                         .iter()
                         .map(|c| c.to_string().to_ascii_lowercase())
+                        .chain(
+                            color_dot::TAB_BRIGHT_COLOR_OPTIONS
+                                .iter()
+                                .map(|c| format!("bright_{}", c.to_string().to_ascii_lowercase())),
+                        )
                         .chain(std::iter::once("none".to_owned()))
                         .collect::<Vec<_>>()
                         .join(", ")
@@ -528,10 +532,13 @@ impl Input {
                 let color = if arg.eq_ignore_ascii_case("none") {
                     SelectedTabColor::Cleared
                 } else {
-                    let parsed = arg
-                        .parse::<AnsiColorIdentifier>()
-                        .ok()
-                        .filter(|c| color_dot::TAB_COLOR_OPTIONS.contains(c));
+                    let parsed = arg.parse::<TabColorChoice>().ok().filter(|c| {
+                        if c.bright {
+                            color_dot::TAB_BRIGHT_COLOR_OPTIONS.contains(&c.color)
+                        } else {
+                            color_dot::TAB_COLOR_OPTIONS.contains(&c.color)
+                        }
+                    });
                     match parsed {
                         Some(c) => SelectedTabColor::Color(c),
                         None => {

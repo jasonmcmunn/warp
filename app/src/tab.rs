@@ -17,7 +17,9 @@ use crate::terminal::shared_session::render_util::shared_session_indicator_color
 use crate::terminal::view::TerminalViewState;
 use crate::themes::theme::{AnsiColorIdentifier, Fill as ThemeFill, VerticalGradient};
 use crate::ui_components::buttons::icon_button;
-use crate::ui_components::color_dot::{render_color_dot, TAB_COLOR_OPTIONS};
+use crate::ui_components::color_dot::{
+    render_color_dot, TAB_BRIGHT_COLOR_OPTIONS, TAB_COLOR_OPTIONS,
+};
 use crate::ui_components::icons::{Icon, ICON_DIMENSIONS};
 use crate::util::color::{coloru_with_opacity, Opacity};
 use crate::util::truncation::truncate_from_end;
@@ -37,7 +39,7 @@ use serde::{Deserialize, Serialize};
 use warp_core::context_flag::ContextFlag;
 use warp_core::ui::builder::UiBuilder;
 use warp_core::ui::theme::color::internal_colors;
-use warp_core::ui::theme::AnsiColors;
+use warp_core::ui::theme::{AnsiColors, TerminalColors};
 use warpui::elements::{
     Align, Border, ChildAnchor, Clipped, ConstrainedBox, Container, CornerRadius,
     CrossAxisAlignment, DragAxis, Draggable, DraggableState, DropTarget, Element, Empty, Fill,
@@ -75,6 +77,132 @@ const COMPACT_TAB_WIDTH_THRESHOLD: f32 = 42.0;
 // Horizontal inset for the tab close button
 const TAB_CLOSE_BUTTON_HORIZONTAL_INSET: f32 = 2.0;
 
+/// A tab color choice: an ANSI color identifier plus whether the bright
+/// palette variant should be used.
+///
+/// Serialized as a lowercase string token: `"red"` for a normal variant,
+/// `"bright_red"` for a bright one. This format is backward compatible with
+/// the older bare-`AnsiColorIdentifier` format used before bright support.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TabColorChoice {
+    pub color: AnsiColorIdentifier,
+    pub bright: bool,
+}
+
+impl TabColorChoice {
+    pub const fn normal(color: AnsiColorIdentifier) -> Self {
+        Self {
+            color,
+            bright: false,
+        }
+    }
+
+    pub const fn bright(color: AnsiColorIdentifier) -> Self {
+        Self {
+            color,
+            bright: true,
+        }
+    }
+
+    /// Resolve the choice to a concrete ANSI color. Normal variants come from
+    /// the active terminal theme's `normal` palette; bright variants use a
+    /// fixed neon palette so they stay visually distinct regardless of how
+    /// the theme defines `bright`.
+    pub fn to_ansi_color(self, terminal_colors: &TerminalColors) -> warp_core::ui::theme::AnsiColor {
+        if self.bright {
+            neon_color(self.color)
+        } else {
+            self.color.to_ansi_color(&terminal_colors.normal)
+        }
+    }
+
+    fn token(self) -> String {
+        let base = self.color.to_string().to_ascii_lowercase();
+        if self.bright {
+            format!("bright_{base}")
+        } else {
+            base
+        }
+    }
+}
+
+impl std::fmt::Display for TabColorChoice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.bright {
+            write!(f, "Neon {}", self.color)
+        } else {
+            write!(f, "{}", self.color)
+        }
+    }
+}
+
+/// Fixed neon hex palette for the bright row in the tab color picker.
+/// Chosen for high saturation and visual distinction from any terminal
+/// theme's normal ANSI palette.
+fn neon_color(color: AnsiColorIdentifier) -> warp_core::ui::theme::AnsiColor {
+    use warp_core::ui::theme::AnsiColor;
+    AnsiColor::from_u32(match color {
+        AnsiColorIdentifier::Red => 0xFF073A00,
+        AnsiColorIdentifier::Green => 0x39FF1400,
+        AnsiColorIdentifier::Yellow => 0xFAFA3300,
+        AnsiColorIdentifier::Blue => 0x4D4DFF00,
+        AnsiColorIdentifier::Magenta => 0xFF10F000,
+        AnsiColorIdentifier::Cyan => 0x0FF0FC00,
+        // Not exposed in the picker, but kept so the match is exhaustive.
+        AnsiColorIdentifier::Black => 0x00000000,
+        AnsiColorIdentifier::White => 0xFFFFFF00,
+    })
+}
+
+impl std::str::FromStr for TabColorChoice {
+    type Err = strum::ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.trim();
+        if let Some(rest) = s.strip_prefix("bright_").or_else(|| s.strip_prefix("Bright ")) {
+            Ok(TabColorChoice::bright(rest.parse()?))
+        } else {
+            Ok(TabColorChoice::normal(s.parse()?))
+        }
+    }
+}
+
+impl Serialize for TabColorChoice {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.token())
+    }
+}
+
+// Tolerant deserialize: accepts either a string token (`"red"`,
+// `"bright_red"`) or the explicit struct form (`{color, bright}`). The
+// string-token path keeps the older bare-`AnsiColorIdentifier` persisted
+// format loading correctly.
+impl<'de> Deserialize<'de> for TabColorChoice {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Struct {
+            color: AnsiColorIdentifier,
+            #[serde(default)]
+            bright: bool,
+        }
+
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Repr {
+            Str(String),
+            Struct(Struct),
+        }
+
+        Ok(match Repr::deserialize(deserializer)? {
+            Repr::Str(s) => s.parse().map_err(serde::de::Error::custom)?,
+            Repr::Struct(Struct { color, bright }) => TabColorChoice { color, bright },
+        })
+    }
+}
+
 /// Represents the user's manual tab-color selection state.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SelectedTabColor {
@@ -84,20 +212,21 @@ pub enum SelectedTabColor {
     /// User explicitly cleared the color (overrides any default).
     Cleared,
     /// User explicitly chose this color.
-    Color(AnsiColorIdentifier),
+    Color(TabColorChoice),
 }
 
 impl SelectedTabColor {
     /// Resolves the effective tab color: manual selection takes priority,
-    /// falling back to `default` when no override is set.
+    /// falling back to `default` when no override is set. The directory
+    /// default never carries the bright flag.
     pub(crate) fn resolve(
         self,
         default: Option<AnsiColorIdentifier>,
-    ) -> Option<AnsiColorIdentifier> {
+    ) -> Option<TabColorChoice> {
         match self {
             SelectedTabColor::Color(c) => Some(c),
             SelectedTabColor::Cleared => None,
-            SelectedTabColor::Unset => default,
+            SelectedTabColor::Unset => default.map(TabColorChoice::normal),
         }
     }
 }
@@ -166,7 +295,7 @@ impl TabData {
     }
 
     /// The resolved tab color: manual selection takes priority over directory default.
-    pub fn color(&self) -> Option<AnsiColorIdentifier> {
+    pub fn color(&self) -> Option<TabColorChoice> {
         self.selected_color.resolve(self.default_directory_color)
     }
 
@@ -188,7 +317,7 @@ impl TabData {
         ctx: &AppContext,
     ) -> Vec<MenuItem<WorkspaceAction>> {
         let appearance = Appearance::as_ref(ctx);
-        let terminal_colors = appearance.theme().terminal_colors().normal;
+        let terminal_colors = appearance.theme().terminal_colors().clone();
         let mut menu_items = vec![];
 
         for section_items in [
@@ -197,7 +326,7 @@ impl TabData {
             self.modify_tab_menu_items(index, tabs_len, pane_name_target, ctx),
             self.close_tab_menu_items(index, tabs_len, ctx),
             Self::save_config_menu_items(index),
-            self.color_option_menu_items(index, terminal_colors),
+            self.color_option_menu_items(index, &terminal_colors),
         ] {
             if menu_items
                 .last()
@@ -530,28 +659,61 @@ impl TabData {
     fn color_option_menu_items(
         &self,
         index: usize,
-        terminal_colors: AnsiColors,
+        terminal_colors: &TerminalColors,
     ) -> Vec<MenuItem<WorkspaceAction>> {
         if FeatureFlag::DirectoryTabColors.is_enabled() {
             self.dot_color_option_menu_items(index, terminal_colors)
         } else {
-            self.legacy_color_option_menu_items(index, terminal_colors)
+            self.legacy_color_option_menu_items(index, &terminal_colors.normal)
         }
     }
 
-    /// New dot-based color picker: default (no-color) + color options.
-    /// Rendered as a single custom menu item with individually clickable dots.
+    /// New dot-based color picker: two stacked rows rendered as two adjacent
+    /// custom-label menu items. The parent menu builder only inserts a
+    /// separator between sections, not between items within a section, so the
+    /// rows stack tightly under one divider.
+    /// Row 1: no-color + normal ANSI variants.
+    /// Row 2: bright ANSI variants (rendered from the active theme's bright palette).
     fn dot_color_option_menu_items(
         &self,
         index: usize,
-        terminal_colors: AnsiColors,
+        terminal_colors: &TerminalColors,
     ) -> Vec<MenuItem<WorkspaceAction>> {
-        let effective_color = self.color();
-        let mouse_states: Vec<MouseStateHandle> = (0..TAB_COLOR_OPTIONS.len() + 1)
+        vec![
+            Self::dot_color_row_menu_item(
+                index,
+                self.color(),
+                terminal_colors.clone(),
+                /* include_no_color */ true,
+                &TAB_COLOR_OPTIONS,
+                /* bright */ false,
+            ),
+            Self::dot_color_row_menu_item(
+                index,
+                self.color(),
+                terminal_colors.clone(),
+                /* include_no_color */ false,
+                &TAB_BRIGHT_COLOR_OPTIONS,
+                /* bright */ true,
+            ),
+        ]
+    }
+
+    /// Builds a single row of color dots as a custom-label menu item.
+    fn dot_color_row_menu_item(
+        index: usize,
+        effective_color: Option<TabColorChoice>,
+        terminal_colors: TerminalColors,
+        include_no_color: bool,
+        colors: &'static [AnsiColorIdentifier],
+        bright: bool,
+    ) -> MenuItem<WorkspaceAction> {
+        let cell_count = colors.len() + usize::from(include_no_color);
+        let mouse_states: Vec<MouseStateHandle> = (0..cell_count)
             .map(|_| MouseStateHandle::default())
             .collect();
 
-        vec![MenuItem::Item(
+        MenuItem::Item(
             MenuItemFields::new_with_custom_label(
                 Arc::new(move |_is_selected, _is_hovered, appearance, _app| {
                     let theme = appearance.theme();
@@ -562,21 +724,32 @@ impl TabData {
                         .with_cross_axis_alignment(CrossAxisAlignment::Center)
                         .with_main_axis_size(MainAxisSize::Max);
 
-                    for (ansi_id, mouse_state) in std::iter::once(None)
-                        .chain(TAB_COLOR_OPTIONS.iter().copied().map(Some))
-                        .zip(mouse_states.iter().cloned())
-                    {
-                        let is_selected = match ansi_id {
+                    let mut states = mouse_states.iter().cloned();
+
+                    let choices = include_no_color
+                        .then_some(None)
+                        .into_iter()
+                        .chain(colors.iter().copied().map(|c| {
+                            Some(if bright {
+                                TabColorChoice::bright(c)
+                            } else {
+                                TabColorChoice::normal(c)
+                            })
+                        }));
+
+                    for choice in choices {
+                        let mouse_state = states.next().expect("mouse state per dot");
+                        let is_selected = match choice {
                             None => effective_color.is_none(),
-                            Some(id) => effective_color == Some(id),
+                            Some(c) => effective_color == Some(c),
                         };
-                        let dot_color: ColorU = match ansi_id {
+                        let dot_color: ColorU = match choice {
                             None => ColorU::transparent_black(),
-                            Some(id) => id.to_ansi_color(&terminal_colors).into(),
+                            Some(c) => c.to_ansi_color(&terminal_colors).into(),
                         };
-                        let tooltip = match ansi_id {
+                        let tooltip = match choice {
                             None => "Default (no color)".to_string(),
-                            Some(id) => id.to_string(),
+                            Some(c) => c.to_string(),
                         };
 
                         let dot = render_color_dot(
@@ -584,20 +757,20 @@ impl TabData {
                             dot_color,
                             is_selected,
                             ring_color,
-                            ansi_id.is_none(),
+                            choice.is_none(),
                             theme.foreground(),
                             tooltip,
                             appearance,
                         )
                         .on_click(move |ctx, _, _| {
-                            if let Some(color) = ansi_id {
+                            if let Some(c) = choice {
                                 ctx.dispatch_typed_action(WorkspaceAction::ToggleTabColor {
-                                    color,
+                                    color: c,
                                     tab_index: index,
                                 });
-                            } else if let Some(color) = effective_color {
+                            } else if let Some(c) = effective_color {
                                 ctx.dispatch_typed_action(WorkspaceAction::ToggleTabColor {
-                                    color,
+                                    color: c,
                                     tab_index: index,
                                 });
                             }
@@ -613,22 +786,24 @@ impl TabData {
             )
             .no_highlight_on_hover()
             .with_no_interaction_on_hover(),
-        )]
+        )
     }
 
     /// Legacy icon-based color picker with toggle behavior.
+    /// Does not expose bright variants — only the normal ANSI palette.
     fn legacy_color_option_menu_items(
         &self,
         index: usize,
-        terminal_colors: AnsiColors,
+        terminal_colors: &AnsiColors,
     ) -> Vec<MenuItem<WorkspaceAction>> {
         vec![MenuItem::ItemsRow {
             items: TAB_COLOR_OPTIONS
                 .iter()
                 .map(|color_option| {
-                    let color = color_option.to_ansi_color(&terminal_colors);
+                    let choice = TabColorChoice::normal(*color_option);
+                    let color = color_option.to_ansi_color(terminal_colors);
                     MenuItemFields::new_with_icon(
-                        if self.color() == Some(*color_option) {
+                        if self.color() == Some(choice) {
                             TAB_NO_COLOR_ICON_PATH
                         } else {
                             TAB_COLOR_ICON_PATH
@@ -638,7 +813,7 @@ impl TabData {
                     )
                     .no_highlight_on_hover()
                     .with_on_select_action(WorkspaceAction::ToggleTabColor {
-                        color: *color_option,
+                        color: choice,
                         tab_index: index,
                     })
                 })
@@ -744,10 +919,10 @@ impl TabStyles {
 
     /// Returns the default styling (based on the current settings and ui builder, hence not
     /// implementing Default trait).
-    fn default(appearance: &Appearance, tab_color: Option<AnsiColorIdentifier>) -> TabStyles {
+    fn default(appearance: &Appearance, tab_color: Option<TabColorChoice>) -> TabStyles {
         let theme = appearance.theme();
         let active_tab_bar_color: Option<ThemeFill> =
-            tab_color.map(|color| color.to_ansi_color(&theme.terminal_colors().normal).into());
+            tab_color.map(|choice| choice.to_ansi_color(theme.terminal_colors()).into());
         let error_color = theme.ui_error_color();
         let sharing_color = shared_session_indicator_color(appearance);
         let background = active_tab_bar_color.map(|color| {

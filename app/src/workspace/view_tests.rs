@@ -1,4 +1,5 @@
 use super::*;
+use crate::themes::theme::AnsiColorIdentifier;
 use crate::ai::blocklist::agent_view::orchestration_pill_bar_model::OrchestrationPillBarModel;
 use crate::ai::blocklist::{BlocklistAIHistoryModel, BlocklistAIPermissions};
 use crate::ai::document::ai_document_model::AIDocumentModel;
@@ -911,29 +912,29 @@ fn test_set_active_tab_color() {
             // Setting a color stores it as the manual selection and resolves to it.
             workspace.handle_action(
                 &WorkspaceAction::SetActiveTabColor(SelectedTabColor::Color(
-                    AnsiColorIdentifier::Magenta,
+                    TabColorChoice::normal(AnsiColorIdentifier::Magenta),
                 )),
                 ctx,
             );
             assert_eq!(
                 workspace.tabs[active].selected_color,
-                SelectedTabColor::Color(AnsiColorIdentifier::Magenta),
+                SelectedTabColor::Color(TabColorChoice::normal(AnsiColorIdentifier::Magenta)),
             );
             assert_eq!(
                 workspace.tabs[active].color(),
-                Some(AnsiColorIdentifier::Magenta),
+                Some(TabColorChoice::normal(AnsiColorIdentifier::Magenta)),
             );
 
             // Replacing with a different color overwrites the previous selection.
             workspace.handle_action(
                 &WorkspaceAction::SetActiveTabColor(SelectedTabColor::Color(
-                    AnsiColorIdentifier::Green,
+                    TabColorChoice::normal(AnsiColorIdentifier::Green),
                 )),
                 ctx,
             );
             assert_eq!(
                 workspace.tabs[active].selected_color,
-                SelectedTabColor::Color(AnsiColorIdentifier::Green),
+                SelectedTabColor::Color(TabColorChoice::normal(AnsiColorIdentifier::Green)),
             );
 
             // `Cleared` explicitly suppresses any color (including a directory default).
@@ -964,13 +965,13 @@ fn test_set_active_tab_color() {
             workspace.handle_action(&WorkspaceAction::ActivateTab(0), ctx);
             workspace.handle_action(
                 &WorkspaceAction::SetActiveTabColor(SelectedTabColor::Color(
-                    AnsiColorIdentifier::Blue,
+                    TabColorChoice::normal(AnsiColorIdentifier::Blue),
                 )),
                 ctx,
             );
             assert_eq!(
                 workspace.tabs[0].selected_color,
-                SelectedTabColor::Color(AnsiColorIdentifier::Blue),
+                SelectedTabColor::Color(TabColorChoice::normal(AnsiColorIdentifier::Blue)),
             );
             assert_eq!(
                 workspace.tabs[active].selected_color,

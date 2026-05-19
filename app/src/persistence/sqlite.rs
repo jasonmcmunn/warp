@@ -102,7 +102,7 @@ use crate::server::telemetry::TelemetryEvent;
 use crate::settings::cloud_preferences::{CloudPreference, CloudPreferenceModel};
 use crate::settings_view::SettingsSection;
 use crate::suggestions::ignored_suggestions_model::SuggestionType;
-use crate::tab::SelectedTabColor;
+use crate::tab::{SelectedTabColor, TabColorChoice};
 use crate::terminal::history::PersistedCommand;
 use crate::terminal::ShellLaunchData;
 use crate::themes::theme::AnsiColorIdentifier;
@@ -2766,9 +2766,11 @@ fn read_sqlite_data(
                                     .ok()
                                     .or_else(|| {
                                         // Fall back to the old format which stored a bare AnsiColorIdentifier
-                                        serde_yaml::from_str::<AnsiColorIdentifier>(s)
-                                            .ok()
-                                            .map(SelectedTabColor::Color)
+                                        serde_yaml::from_str::<AnsiColorIdentifier>(s).ok().map(
+                                            |c| {
+                                                SelectedTabColor::Color(TabColorChoice::normal(c))
+                                            },
+                                        )
                                     })
                             })
                             .unwrap_or_default(),

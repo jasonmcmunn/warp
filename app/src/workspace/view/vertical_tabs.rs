@@ -4427,8 +4427,8 @@ fn compute_tab_group_color_mode(
     // Manual override applies to the whole group.
     if !matches!(tab.selected_color, SelectedTabColor::Unset) {
         return match tab.color() {
-            Some(color) => TabGroupColorMode::Uniform(
-                color.to_ansi_color(&theme.terminal_colors().normal).into(),
+            Some(choice) => TabGroupColorMode::Uniform(
+                choice.to_ansi_color(theme.terminal_colors()).into(),
             ),
             None => TabGroupColorMode::None,
         };

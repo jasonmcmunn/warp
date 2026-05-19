@@ -24,6 +24,17 @@ pub(crate) const TAB_COLOR_OPTIONS: [AnsiColorIdentifier; 6] = [
     AnsiColorIdentifier::Cyan,
 ];
 
+/// Companion to `TAB_COLOR_OPTIONS` for the bright (neon) palette row.
+/// Rendered via the active theme's `bright` ANSI palette rather than `normal`.
+pub(crate) const TAB_BRIGHT_COLOR_OPTIONS: [AnsiColorIdentifier; 6] = [
+    AnsiColorIdentifier::Red,
+    AnsiColorIdentifier::Green,
+    AnsiColorIdentifier::Yellow,
+    AnsiColorIdentifier::Blue,
+    AnsiColorIdentifier::Magenta,
+    AnsiColorIdentifier::Cyan,
+];
+
 /// Renders a hoverable color dot with selection ring, tooltip, and pointer cursor.
 /// For the no-color option, pass `is_no_color: true` to show a slash overlay.
 /// Returns a `Hoverable` so callers can chain `.on_click(...)` before `.finish()`.

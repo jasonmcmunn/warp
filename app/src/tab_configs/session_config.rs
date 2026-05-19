@@ -8,7 +8,6 @@ use anyhow::Result;
 use crate::app_state::{BranchSnapshot, LeafContents, LeafSnapshot, PaneNodeSnapshot};
 use crate::launch_configs::launch_config::SplitDirection;
 use crate::terminal::cli_agent::CLIAgent;
-use crate::themes::theme::AnsiColorIdentifier;
 use crate::ui_components::icons::Icon;
 
 use super::tab_config::{
@@ -210,7 +209,7 @@ pub fn is_git_repo(path: &Path) -> bool {
 pub fn tab_config_from_pane_snapshot(
     snapshot: &PaneNodeSnapshot,
     custom_title: Option<String>,
-    color: Option<AnsiColorIdentifier>,
+    color: Option<crate::tab::TabColorChoice>,
 ) -> TabConfig {
     let mut panes = Vec::new();
     let mut counter: usize = 0;

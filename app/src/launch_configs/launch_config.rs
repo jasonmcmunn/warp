@@ -4,7 +4,6 @@ use crate::app_state::{
     AppState, LeafContents, PaneNodeSnapshot, SplitDirection as StateSplitDirection, TabSnapshot,
     WindowSnapshot,
 };
-use crate::themes::theme::AnsiColorIdentifier;
 use serde::{Deserialize, Deserializer, Serialize};
 
 #[cfg(test)]
@@ -183,7 +182,7 @@ pub struct TabTemplate {
     pub title: Option<String>,
     pub layout: PaneTemplateType,
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub color: Option<AnsiColorIdentifier>,
+    pub color: Option<crate::tab::TabColorChoice>,
 }
 
 impl TryFrom<TabSnapshot> for TabTemplate {

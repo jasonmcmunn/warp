@@ -349,7 +349,7 @@ use crate::terminal::view::{
     SyncEvent, SyncInputType, TerminalAction, NOTIFICATIONS_TROUBLESHOOT_URL,
 };
 use crate::terminal::{BlockListSettings, TerminalModel};
-use crate::themes::theme::{AnsiColorIdentifier, RespectSystemTheme, ThemeKind};
+use crate::themes::theme::{RespectSystemTheme, ThemeKind};
 use crate::themes::theme_chooser::{ThemeChooser, ThemeChooserEvent, ThemeChooserMode};
 use crate::themes::theme_creator_modal::{ThemeCreatorModal, ThemeCreatorModalEvent};
 use crate::themes::theme_deletion_modal::{ThemeDeletionModal, ThemeDeletionModalEvent};
@@ -486,7 +486,7 @@ use crate::search::command_palette::view::{Event as CommandPaletteEvent, View as
 use crate::server::telemetry::{NotificationsTurnedOnSource, PaletteSource, TabRenameEvent};
 use crate::tab::{
     tab_position_id, uses_vertical_tabs, NewSessionMenuItem, PaneNameMenuTarget, SelectedTabColor,
-    TabBarState, TabComponent, TabData, TabTelemetryAction, TAB_BAR_BORDER_HEIGHT,
+    TabBarState, TabColorChoice, TabComponent, TabData, TabTelemetryAction, TAB_BAR_BORDER_HEIGHT,
 };
 use crate::terminal::view::ssh_file_upload::FileUploadId;
 use crate::ui_components::icons;
@@ -908,7 +908,7 @@ enum PendingSessionConfigTabConfigChipTutorial {
 /// animation continues seamlessly after a handoff.
 pub struct TransferredTab {
     pub pane_group: ViewHandle<PaneGroup>,
-    pub color: Option<AnsiColorIdentifier>,
+    pub color: Option<TabColorChoice>,
     pub custom_title: Option<String>,
     pub left_panel_open: bool,
     pub vertical_tabs_panel_open: bool,
@@ -4841,7 +4841,7 @@ impl Workspace {
     }
 
     /// Get the tab color for a given tab index.
-    pub fn get_tab_color(&self, index: usize) -> Option<AnsiColorIdentifier> {
+    pub fn get_tab_color(&self, index: usize) -> Option<TabColorChoice> {
         self.tabs.get(index).and_then(|tab| tab.color())
     }
 
@@ -5195,7 +5195,7 @@ impl Workspace {
     pub fn toggle_tab_color(
         &mut self,
         index: usize,
-        color: AnsiColorIdentifier,
+        color: TabColorChoice,
         ctx: &mut ViewContext<Self>,
     ) {
         if self.tabs.get(index).is_none() {
