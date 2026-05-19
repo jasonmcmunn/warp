@@ -332,6 +332,12 @@ pub enum WorkspaceAction {
     CopySharedSessionLinkFromTab {
         tab_index: usize,
     },
+    /// Copies a `<channel-scheme>://session/{uuid}` focus URL for the tab's
+    /// focused pane to the clipboard. Reachable from the tab right-click
+    /// menu so it works even when no pane header is visible.
+    CopyTabFocusLink {
+        tab_index: usize,
+    },
     AddWindow,
     AddWindowWithShell {
         shell: AvailableShell,
@@ -896,6 +902,7 @@ impl WorkspaceAction {
             | StopSharingSessionFromTabMenu { .. }
             | StopSharingAllSessionsInTab { .. }
             | CopySharedSessionLinkFromTab { .. }
+            | CopyTabFocusLink { .. }
             | ReopenClosedSession
             | FocusLeftPanel
             | FocusRightPanel

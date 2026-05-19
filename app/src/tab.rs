@@ -323,6 +323,7 @@ impl TabData {
         for section_items in [
             self.session_sharing_menu_items(index, ctx),
             self.copy_metadata_menu_items(pane_name_target, ctx),
+            Self::copy_focus_link_menu_items(index),
             self.modify_tab_menu_items(index, tabs_len, pane_name_target, ctx),
             self.close_tab_menu_items(index, tabs_len, ctx),
             Self::save_config_menu_items(index),
@@ -502,6 +503,18 @@ impl TabData {
         }
 
         menu_items
+    }
+
+    /// "Copy focus link" item for the tab right-click menu. Mirrors the
+    /// per-pane menu item but targets the tab's focused pane, so it's
+    /// reachable for single-pane tabs that don't render a pane header.
+    fn copy_focus_link_menu_items(index: usize) -> Vec<MenuItem<WorkspaceAction>> {
+        if !FeatureFlag::CopyPaneFocusLink.is_enabled() {
+            return vec![];
+        }
+        vec![MenuItemFields::new("Copy focus link")
+            .with_on_select_action(WorkspaceAction::CopyTabFocusLink { tab_index: index })
+            .into_item()]
     }
 
     fn push_copy_metadata_menu_item(
