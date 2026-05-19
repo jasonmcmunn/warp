@@ -1157,6 +1157,9 @@ fn handle_terminal_view_event(
             Event::OpenShareSessionModal { open_source } => {
                 group.open_share_session_modal(terminal_pane_id, *open_source, ctx)
             }
+            Event::CopyPaneFocusLink { source } => {
+                group.copy_pane_focus_link(terminal_pane_id, *source, ctx);
+            }
             Event::OpenShareSessionDeniedModal => {
                 group.open_share_session_denied_modal(terminal_pane_id, ctx);
             }
